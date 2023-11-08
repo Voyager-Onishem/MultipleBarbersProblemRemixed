@@ -9,7 +9,7 @@ int MAX_CHAIRS;
 int CUT_TIME;
 int NUM_BARB;
 int MAX_CUST;
-int CURR_BARB;
+int CURR_BARB=0;
 
 sem_t customers;
 sem_t barbers;
@@ -35,16 +35,43 @@ typedef struct {
     time_t waitingTime;
 } CustomerFeedback;
 
-CustomerFeedback customerFeedbackData[10000];
+
+enum CustomerType {  
+    REGULAR,
+    VIP,
+    CHILD,
+    SENIOR
+};
+enum BarberType {
+    REGULARB,
+    SPEEDY,
+    CHATTY,
+    EXPERIENCED
+};
+
+typedef struct {
+    int barberID;
+    enum BarberType type;
+    int skill;
+} Barber;
+
+Barber barberData[10000]={ 0,0,0};
 
 CustomerFeedback customerFeedbackData[10000];
+
+const char* BarberTypeStrings[] = {
+    "REGULAR",
+    "SPEEDY",
+    "CHATTY",
+    "EXPERIENCED"
+};
 
 void barberThread(void *tmp);
 void customerThread(void *tmp);
 void wait();
 void hireBarber();
 void fireBarber();
-
+void managementThread(void *tmp );
 int main() {
     printf("Enter the number of chairs in waiting room: ");
     scanf("%d", &MAX_CHAIRS);
@@ -60,7 +87,8 @@ int main() {
 
     numberOfFreeSeats = MAX_CHAIRS;
 
-    pthread_t barber[NUM_BARB], customer[MAX_CUST];
+    pthread_t barber[NUM_BARB], customer[MAX_CUST],managerThread;
+    
     int i, status = 0;
 
     sem_init(&customers, 0, 0);
@@ -84,7 +112,13 @@ int main() {
             perror("No Customers Yet!!!\n");
         }
     }
+  status = pthread_create(&managerThread, NULL, (void *)managementThread, (void *)&barbers);
+  if (status != 0) {
+      perror("Error creating the management thread\n");
+  }
 
+  // Wait for the management thread to finish
+  pthread_join(managerThread, NULL);
     for (i = 0; i < MAX_CUST; i++) {
         pthread_join(customer[i], NULL);
     }
@@ -97,8 +131,12 @@ void customerThread(void *tmp) {
     int mySeat, B;
     sem_wait(&mutex);
     count++;
+    int satisfaction;
+    enum CustomerType type = (enum CustomerType)(rand() % 4); // Randomly assign customer types
     printf("Customer-%d[Id:%lu] Entered Shop. ", count, pthread_self());
     time_t entryTime;
+    time_t serviceTime;
+    time_t waitingTime;
     time(&entryTime);
     if (numberOfFreeSeats > 0) {
         numberOfFreeSeats--;
@@ -114,44 +152,60 @@ void customerThread(void *tmp) {
         numberOfFreeSeats++;
         sem_post(&mutex);
         // Record customer service time
-        time_t serviceTime;
+        
         time(&serviceTime);
 
         // Calculate waiting time
-        time_t waitingTime = difftime(serviceTime, entryTime);
-        int satisfactionLevel = 5; // Start with maximum satisfaction
+        waitingTime = difftime(serviceTime, entryTime);
+        satisfaction = 5; // Start with maximum satisfaction
         if (waitingTime > 6) {
-            satisfactionLevel = 1; // Lowest satisfaction for very long wait times
+            satisfaction = 1; // Lowest satisfaction for very long wait times
         } else if (waitingTime > 3) {
-            satisfactionLevel = 2;
+            satisfaction = 2;
         } else if (waitingTime > 1) {
-            satisfactionLevel = 3;
+            satisfaction = 3;
         } else if (waitingTime > 0) {
-            satisfactionLevel = 4;
+            satisfaction = 4;
         }
 
-        printf("Customer-%d is satisfied with level %d. Waited for %ld seconds.\n", count, satisfactionLevel, waitingTime);
-        customerFeedbackData[count].customerID = count;
-        customerFeedbackData[count].satisfactionLevel = satisfactionLevel;
-        customerFeedbackData[count].entryTime = entryTime;
-        customerFeedbackData[count].serviceTime = serviceTime;
-        customerFeedbackData[count].waitingTime = waitingTime;
+        printf("Customer-%d is satisfied with level %d. Waited for %ld seconds.\n", count, satisfaction, waitingTime);
+        
     } else {
         sem_post(&mutex);
         printf("Customer-%d Finds No Seat & Leaves.\n", count);
         insuff=true;
+        satisfaction =-1;
         sleep(2); // Sleep for 2 seconds as a placeholder
     }
-    int arrivalTime = rand() % 5; // Adjust the range as needed
-    sleep(arrivalTime);
+  
+  customerFeedbackData[count].customerID = count;
+  customerFeedbackData[count].satisfactionLevel = satisfaction;
+  customerFeedbackData[count].entryTime = entryTime;
+  customerFeedbackData[count].serviceTime = serviceTime;
+  customerFeedbackData[count].waitingTime = waitingTime;
     pthread_exit(0);
 }
 
 void barberThread(void *tmp) {
+    pthread_mutex_lock(&currbarbMutex);
+    CURR_BARB++;
+    pthread_mutex_unlock(&currbarbMutex);
     int index = *(int *)(tmp);
     int myNext, C;
-    int skill = rand() % 10 + 1;   
-    printf("Barber-%d[Id:%lu] Joins Shop. ", index, pthread_self());
+    int typenum = (rand() % 4);
+    int skill = rand() % 10 + 1;  
+    int id=pthread_self();
+    enum BarberType type = typenum;
+  printf("type: %d\n",type);// Randomly assign barber types
+    if(typenum==1){
+      skill*=1.5;
+    }
+    printf("Type: %s, Skill: %d\n", BarberTypeStrings[typenum], skill);
+    barberData[CURR_BARB].barberID= id;
+    barberData[CURR_BARB].skill = skill;
+    barberData[CURR_BARB].type = type;
+    while (true) {
+    printf("Barber-%d Joins Shop. ", index );
     while (1) {
         printf("Barber-%d Gone To Sleep.\n", index);
         sem_wait(&barbers);
@@ -167,7 +221,30 @@ void barberThread(void *tmp) {
         printf("Barber-%d Finishes. ", index);
     }
 }
+}
 
+void managementThread(void *tmp) {
+  
+    while (1) {
+        pthread_t lastbarb= *(pthread_t*)(tmp);
+      
+        // Check the need for hiring or firing barbers based on certain criteria
+        // For example, you can evaluate the number of customers and free seats
+        if (insuff || (numberOfFreeSeats > 10 && CURR_BARB < 5)){
+            
+            hireBarber();
+            // Hire a new barber if there are more than 10 free seats and fewer than 5 barbers
+         
+           
+        } else if (numberOfFreeSeats > (0.5)*MAX_CHAIRS && CURR_BARB > 1) {
+            // Fire a barber if there are fewer than 5 free seats and more than 1 barber
+            fireBarber();
+        }
+
+        // Sleep for a while before making the next evaluation
+        sleep(2); // Adjust the sleep duration as needed
+    }
+}
 void wait() {
     int x = rand() % (5000000 - 5000 + 1) + 50000;
     srand(time(NULL));
@@ -182,12 +259,15 @@ void fireBarber(pthread_t barberThread) {
     pthread_mutex_lock(&currbarbMutex);
 
     // Check if there are active barbers to fire
-    if (CURR_BARB > 0) {
+    if (CURR_BARB > 0 ) {
+        barberData[CURR_BARB--].barberID =0;
+        barberData[CURR_BARB].skill=0;
+        barberData[CURR_BARB].type=0;
         // Decrease the count of active barbers
-        CURR_BARB--;
-
+        
+        printf("Fired a barber. Total barbers: %d\n", CURR_BARB);
         // Unlock the mutex before terminating the thread
-        pthread_mutex_unlock(&currbarbMutex);
+        
 
         // Terminate the barber thread
         if (pthread_cancel(barberThread) != 0) {
@@ -195,6 +275,7 @@ void fireBarber(pthread_t barberThread) {
         } else {
             printf("Firing a barber!\n");
         }
+      pthread_mutex_unlock(&currbarbMutex);
     } else {
         // No active barbers to fire
         pthread_mutex_unlock(&currbarbMutex);
@@ -205,16 +286,19 @@ void fireBarber(pthread_t barberThread) {
 void hireBarber() {
     // Hire a new barber
     printf("Hiring a new barber!\n");
+  
     if(CURR_BARB<NUM_BARB){
+      pthread_mutex_lock(&currbarbMutex);
     // Create a new thread for the hired barber
     pthread_t newBarber;
     int status = pthread_create(&newBarber, NULL, (void *)barberThread, (void *)&CURR_BARB);
-      CURR_BARB++;
-
+      
+      printf("Hired a new barber. Total barbers: %d\n", CURR_BARB);
 
       if (status != 0) {
           perror("Failed to hire a new barber!\n");
 
       }
+      pthread_mutex_unlock(&currbarbMutex);
     }
 }
