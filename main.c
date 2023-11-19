@@ -3,15 +3,15 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 int MAX_CHAIRS;
 int CUT_TIME;
 int NUM_BARB;
 int MAX_CUST;
 int CURR_BARB = 0;
-int numlog=1;
+int numlog = 1;
 
 // sem_t customers;
 sem_t barbers;
@@ -65,66 +65,60 @@ void managementThread(void *tmp);
 void loggingthread();
 
 void writelog() {
-  
+
   // creating a FILE variable
   FILE *fptr;
-  
+
   // open the file in append mode
   fptr = fopen("Logs.txt", "a");
-  
-  if(isnew){
-    fprintf(fptr,"\t\t\t*****************QUEUE LOG***************\t\t\t\n\n\n");
-    isnew=false;
+
+  if (isnew) {
+    fprintf(fptr,
+            "\t\t\t*****************QUEUE LOG***************\t\t\t\n\n\n");
+    isnew = false;
   }
-  
   if (fptr != NULL) {
-    printf("\t\t\t-Log recorded-\t\t\t\n");
-  }
-  else {
+    printf("[Logged]\n")
+  } else if (fptr == NULL) {
     printf("Failed to create the file.\n");
     // exit status for OS that an error occurred
   }
-    
-    time_t t = time(NULL);
-    struct tm *tmp = gmtime(&t);
 
-    int h = (t / 360) % 24;  /* ### My problem. */
-    int m = (t / 60) % 60;
-    int s = t % 60;
-    int i = 1;
+  time_t t = time(NULL);
+  struct tm *tmp = gmtime(&t);
 
+  int h = (t / 360) % 24; /* ### My problem. */
+  int m = (t / 60) % 60;
+  int s = t % 60;
+  int i = 1;
 
-    fprintf(fptr,"--[Time: %02d:%02d:%02d]-----[Log: %d]--------------------\n",h,m,s,numlog++);
-    fprintf(fptr,"Number of chairs in waiting queue:\t %d\n",MAX_CHAIRS);
-    fprintf(fptr,"Number of free seats:\t %d\n",numberOfFreeSeats);
-    fprintf(fptr,"The waiting queue:\n");
-    fprintf(fptr,"Customer ID: \t");
-    for(;i<count;i++){
-      if(seatPocket[i][0]==-1) fprintf(fptr,"| E ");
-      
-      else fprintf(fptr,"| %d ",seatPocket[i][0]);
-        
-    }
-    for(int i=0; i<MAX_CHAIRS-count+1;i++){
-      fprintf(fptr,"| E ");
-    }
-    fprintf(fptr,"|\n");
-    
-    fprintf(fptr,"\n\n");
-      // close connection
-      fclose(fptr);
+  fprintf(fptr, "--[Time: %02d:%02d:%02d]-----[Log: %d]--------------------\n",
+          h, m, s, numlog++);
+  fprintf(fptr, "Number of chairs in waiting queue:\t %d\n", MAX_CHAIRS);
+  fprintf(fptr, "Number of free seats:\t %d\n", numberOfFreeSeats);
+  fprintf(fptr, "The waiting queue:\n");
+  fprintf(fptr, "Customer ID: \t");
+  for (; i < count; i++) {
+    if (seatPocket[i][0] == -1)
+      fprintf(fptr, "| E ");
 
-    }
+    else
+      fprintf(fptr, "| %d ", seatPocket[i][0]);
+  }
+  for (int i = 0; i < MAX_CHAIRS - count + 1; i++) {
+    fprintf(fptr, "| E ");
+  }
+  fprintf(fptr, "|\n");
 
-
-
-
+  fprintf(fptr, "\n\n");
+  // close connection
+  fclose(fptr);
+}
 
 int main() {
   printf("Enter the number of chairs in waiting room: ");
   scanf("%d", &MAX_CHAIRS);
-  
-  
+
   printf("Enter number of barbers: ");
   scanf("%d", &NUM_BARB);
 
@@ -133,7 +127,7 @@ int main() {
 
   numberOfFreeSeats = MAX_CHAIRS;
 
-  pthread_t barber[NUM_BARB], customer[MAX_CUST], managerThread,logger;
+  pthread_t barber[NUM_BARB], customer[MAX_CUST], managerThread, logger;
 
   int i, status = 0;
 
@@ -157,20 +151,19 @@ int main() {
       perror("No Barber Present... Sorry!!\n\n");
     }
   }
-  pthread_create(&logger , NULL, (void*)loggingthread, NULL);
+  pthread_create(&logger, NULL, (void *)loggingthread, NULL);
   for (i = 0; i < MAX_CUST; i++) {
     status = pthread_create(&customer[i], NULL, (void *)customerThread, NULL);
-    
+
     int waittimes[6] = {320000, 160000, 640000, 5000, 1200, 320};
     int x = rand() % 7;
     sleep(rand() % 5);
-   
+
     if (status != 0) {
       perror("No Customers Yet!!!\n\n");
     }
   }
-  
-  
+
   status = pthread_create(&managerThread, NULL, (void *)managementThread,
                           (void *)&barbers);
   if (status != 0) {
@@ -189,7 +182,8 @@ int main() {
 }
 
 void customerThread(void *tmp) {
-  while(logging);
+  while (logging)
+    ;
   int mySeat, B, id;
   int satisfaction;
   enum CustomerType type =
@@ -212,7 +206,7 @@ void customerThread(void *tmp) {
     mySeat = sitHereNext;
     seatPocket[mySeat][0] = id;
     sem_post(&mutex);
-    //writelog();
+    // writelog();
     printf("Customer-%d Sits In Waiting Room.\n\n", id);
     sem_post(&barbers);
     // sem_wait(&customers);
@@ -259,7 +253,8 @@ void customerThread(void *tmp) {
 }
 
 void barberThread(void *tmp) {
-  while(logging);
+  while (logging)
+    ;
   pthread_mutex_lock(&currbarbMutex);
   CURR_BARB++;
   int index = *(int *)(tmp);
@@ -309,7 +304,8 @@ void barberThread(void *tmp) {
 }
 
 void managementThread(void *tmp) {
-  while(logging);
+  while (logging)
+    ;
   while (1) {
     pthread_t lastbarb = *(pthread_t *)(tmp);
 
@@ -326,7 +322,7 @@ void managementThread(void *tmp) {
     } else if (numberOfFreeSeats > (0.5) * MAX_CHAIRS && CURR_BARB > 1) {
       // Fire a barber if there are fewer than 5 free seats and more than 1
       // barber
-      //fireBarber();
+      // fireBarber();
     }
 
     // Sleep for a while before making the next evaluation
@@ -334,7 +330,8 @@ void managementThread(void *tmp) {
   }
 }
 void wait() {
-  while(logging);
+  while (logging)
+    ;
   int waittimes[6] = {320000, 160000, 640000, 5000, 1200, 320};
   int x = rand() % 7;
   usleep(waittimes[x]);
@@ -395,12 +392,11 @@ void hireBarber() {
   pthread_mutex_unlock(&currbarbMutex);
 }
 
-void loggingthread(){
-  while(1){
-    logging=true;
+void loggingthread() {
+  while (1) {
+    logging = true;
     writelog();
-    logging=false;
+    logging = false;
     sleep(2);
-    
   }
 }
