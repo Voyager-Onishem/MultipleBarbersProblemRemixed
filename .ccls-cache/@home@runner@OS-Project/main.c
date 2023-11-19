@@ -74,28 +74,29 @@ int main() {
 
   int i, status = 0;
 
-  //sem_init(&customers, 0, 0);
+  // sem_init(&customers, 0, 0);
   sem_init(&barbers, 0, 0);
   sem_init(&mutex, 0, 1);
 
   printf("\n\n");
 
-  printf("Print statement sequences might be changed. Should only be used to know what the customer saw\n");
+  printf("Print statement sequences might be changed. Should only be used to "
+         "know what the customer saw\n");
 
   printf("!!Barber Shop Opens!!\n\n");
 
   for (i = 0; i < NUM_BARB; i++) {
     int *serial_number = malloc(sizeof(int));
     *serial_number = i;
-    status = pthread_create(&barber[i], NULL, (void *)barberThread, serial_number);
+    status =
+        pthread_create(&barber[i], NULL, (void *)barberThread, serial_number);
     if (status != 0) {
       perror("No Barber Present... Sorry!!\n\n");
     }
   }
 
   for (i = 0; i < MAX_CUST; i++) {
-    status =
-        pthread_create(&customer[i], NULL, (void *)customerThread, NULL);
+    status = pthread_create(&customer[i], NULL, (void *)customerThread, NULL);
     // wait();
     int waittimes[6] = {320000, 160000, 640000, 5000, 1200, 320};
     int x = rand() % 7;
@@ -134,19 +135,21 @@ void customerThread(void *tmp) {
   id = count;
   time(&entryTime);
   sem_post(&mutex);
-  printf("Customer-%d Entered Shop. There are %d free seats.\n\n", id, numberOfFreeSeats);
+  printf("Customer-%d Entered Shop. There are %d free seats.\n\n", id,
+         numberOfFreeSeats);
   if (numberOfFreeSeats > 0) {
     sem_wait(&mutex);
     numberOfFreeSeats--;
-    //sitHereNext = (sitHereNext + 1) % MAX_CHAIRS;
+    // sitHereNext = (sitHereNext + 1) % MAX_CHAIRS;
     ++sitHereNext;
     mySeat = sitHereNext;
     seatPocket[mySeat][0] = id;
     sem_post(&mutex);
     printf("Customer-%d Sits In Waiting Room.\n\n", id);
     sem_post(&barbers);
-    //sem_wait(&customers);
-    while(seatPocket[mySeat][0] != -1);
+    // sem_wait(&customers);
+    while (seatPocket[mySeat][0] != -1)
+      ;
     time(&serviceTime);
 
     // Record customer service time
@@ -164,14 +167,14 @@ void customerThread(void *tmp) {
       satisfaction = 4;
     }
     sem_wait(&mutex);
-    //B = seatPocket[mySeat];
-    //numberOfFreeSeats++;
-    seatPocket[mySeat][1]=waitingTime;
-    seatPocket[mySeat][2]=satisfaction;
+    // B = seatPocket[mySeat];
+    // numberOfFreeSeats++;
+    seatPocket[mySeat][1] = waitingTime;
+    seatPocket[mySeat][2] = satisfaction;
+
+    printf("Customer-%d is satisfied with level %d. Waited for %d seconds.\n\n",
+           id, seatPocket[mySeat][2], seatPocket[mySeat][1]);
     sem_post(&mutex);
-    printf(
-    "Customer-%d is satisfied with level %d. Waited for %ld seconds.\n\n",
-    id, satisfaction, waitingTime);
   } else {
     printf("Customer-%d Finds No Seat & Leaves.\n\n", id);
     insuff = true;
@@ -205,7 +208,8 @@ void barberThread(void *tmp) {
   barberData[CURR_BARB].skill = skill;
   barberData[CURR_BARB].type = type;
   pthread_mutex_unlock(&currbarbMutex);
-  printf("Barber-%d Joins Shop. Type: %s, Skill: %d\n\n", index, BarberTypeStrings[typenum], skill);
+  printf("Barber-%d Joins Shop. Type: %s, Skill: %d\n\n", index,
+         BarberTypeStrings[typenum], skill);
   while (1) {
     printf("Barber-%d Gone To Sleep.\n\n", index);
     sem_wait(&barbers);
@@ -216,16 +220,17 @@ void barberThread(void *tmp) {
     numberOfFreeSeats++;
     sem_post(&mutex);
     C = seatPocket[myNext][0];
-    //seatPocket[myNext] = pthread_self();
+    // seatPocket[myNext] = pthread_self();
 
-    printf("Customer-%d gets up from their seat\nThere are %d free seats\n\n",C,numberOfFreeSeats);
+    printf("Customer-%d gets up from their seat\nThere are %d free seats\n\n",
+           C, numberOfFreeSeats);
 
     printf("Barber-%d Wakes Up & Is Cutting Hair Of Customer-%d.\n\n", index,
-            C);
+           C);
 
-    sleep(30/skill);
+    sleep(30 / skill);
     printf("Barber-%d Finishes.\n", index);
-    //sem_post(&customers);
+    // sem_post(&customers);
     sem_wait(&mutex);
     seatPocket[myNext][0] = -1;
     // seatPocket[myNext][1] = -1;
@@ -252,7 +257,7 @@ void managementThread(void *tmp) {
     } else if (numberOfFreeSeats > (0.5) * MAX_CHAIRS && CURR_BARB > 1) {
       // Fire a barber if there are fewer than 5 free seats and more than 1
       // barber
-      // fireBarber();
+      fireBarber();
     }
 
     // Sleep for a while before making the next evaluation
@@ -297,23 +302,24 @@ void fireBarber(pthread_t barberThread) {
   }
 }
 
-// Task: Separate counter variable for barber indices that will not create overlaps when firing barbers
+// Task: Separate counter variable for barber indices that will not create
+// overlaps when firing barbers
 void hireBarber() {
   // Hire a new barber
   printf("Hiring a new barber!\n\n");
   pthread_mutex_lock(&currbarbMutex);
   // Create a new thread for the hired barber
   pthread_t newBarber;
-  int *serial_number = (int*)malloc(sizeof(int));
+  int *serial_number = (int *)malloc(sizeof(int));
   *serial_number = CURR_BARB;
   // CURR_BARB is incremented in the barber thread itself;
-  int status = pthread_create(&newBarber, NULL, (void *)barberThread,
-                              serial_number);
+  int status =
+      pthread_create(&newBarber, NULL, (void *)barberThread, serial_number);
 
   if (status != 0) {
-      perror("Failed to hire a new barber!\n\n");
-  }else{
-    printf("Hired a new barber. Total barbers: %d\n\n", CURR_BARB+1);
+    perror("Failed to hire a new barber!\n\n");
+  } else {
+    printf("Hired a new barber. Total barbers: %d\n\n", CURR_BARB + 1);
   }
 
   pthread_mutex_unlock(&currbarbMutex);
