@@ -17,7 +17,6 @@ sem_t mutex;
 
 int numberOfFreeSeats;
 int seatPocket[10000][3];
-// Task: Implement as linked list for better memory efficiency
 int sitHereNext = 0;
 int serveMeNext = 0;
 static int count = 0;
@@ -78,10 +77,6 @@ int main() {
   sem_init(&barbers, 0, 0);
   sem_init(&mutex, 0, 1);
 
-  printf("\n\n");
-
-  printf("Print statement sequences might be changed. Should only be used to know what the customer saw\n");
-
   printf("!!Barber Shop Opens!!\n\n");
 
   for (i = 0; i < NUM_BARB; i++) {
@@ -132,23 +127,24 @@ void customerThread(void *tmp) {
   sem_wait(&mutex);
   count++;
   id = count;
+  printf("Customer-%d Entered Shop. \n\n", id);
   time(&entryTime);
-  sem_post(&mutex);
-  printf("Customer-%d Entered Shop. There are %d free seats.\n\n", id, numberOfFreeSeats);
+  printf("There are %d free seats \n",numberOfFreeSeats);
   if (numberOfFreeSeats > 0) {
-    sem_wait(&mutex);
     numberOfFreeSeats--;
-    //sitHereNext = (sitHereNext + 1) % MAX_CHAIRS;
-    ++sitHereNext;
+    printf("Customer-%d Sits In Waiting Room.\n\n", id);
+    sitHereNext = (sitHereNext + 1) % MAX_CHAIRS;
     mySeat = sitHereNext;
     seatPocket[mySeat][0] = id;
     sem_post(&mutex);
-    printf("Customer-%d Sits In Waiting Room.\n\n", id);
     sem_post(&barbers);
     //sem_wait(&customers);
     while(seatPocket[mySeat][0] != -1);
     time(&serviceTime);
-
+    sem_wait(&mutex);
+    //B = seatPocket[mySeat];
+    numberOfFreeSeats++;
+    
     // Record customer service time
 
     // Calculate waiting time
@@ -163,16 +159,15 @@ void customerThread(void *tmp) {
     } else if (waitingTime > 0) {
       satisfaction = 4;
     }
-    sem_wait(&mutex);
-    //B = seatPocket[mySeat];
-    //numberOfFreeSeats++;
     seatPocket[mySeat][1]=waitingTime;
     seatPocket[mySeat][2]=satisfaction;
     sem_post(&mutex);
-    printf(
-    "Customer-%d is satisfied with level %d. Waited for %ld seconds.\n\n",
-    id, satisfaction, waitingTime);
+    
+    
+    
+
   } else {
+    sem_post(&mutex);
     printf("Customer-%d Finds No Seat & Leaves.\n\n", id);
     insuff = true;
     satisfaction = -1;
@@ -210,26 +205,22 @@ void barberThread(void *tmp) {
     printf("Barber-%d Gone To Sleep.\n\n", index);
     sem_wait(&barbers);
     sem_wait(&mutex);
-    // serveMeNext = (serveMeNext + 1) % MAX_CHAIRS;
-    ++serveMeNext;
+    serveMeNext = (serveMeNext + 1) % MAX_CHAIRS;
     myNext = serveMeNext;
-    numberOfFreeSeats++;
-    sem_post(&mutex);
     C = seatPocket[myNext][0];
     //seatPocket[myNext] = pthread_self();
-
-    printf("Customer-%d gets up from their seat\nThere are %d free seats\n\n",C,numberOfFreeSeats);
-
+    
     printf("Barber-%d Wakes Up & Is Cutting Hair Of Customer-%d.\n\n", index,
             C);
-
-    sleep(30/skill);
-    printf("Barber-%d Finishes.\n", index);
+    sleep(5);
+    printf("Barber-%d Finishes. ", index);
+    printf(
+    "Customer-%d is satisfied with level %d. Waited for %d seconds.\n\n",
+    C, seatPocket[myNext][1],seatPocket[myNext][2]);
     //sem_post(&customers);
-    sem_wait(&mutex);
     seatPocket[myNext][0] = -1;
-    // seatPocket[myNext][1] = -1;
-    // seatPocket[myNext][2] = -1;
+    seatPocket[myNext][1] = -1;
+    seatPocket[myNext][2] = -1;
     sem_post(&mutex);
   }
 }
@@ -266,7 +257,7 @@ void wait() {
 }
 
 // Define a mutex for controlling access to the activeBarbers variable
-// Task : Update totals of barbers
+
 void fireBarber(pthread_t barberThread) {
   // Lock the mutex to ensure exclusive access to the activeBarbers variable
   pthread_mutex_lock(&currbarbMutex);
@@ -280,7 +271,7 @@ void fireBarber(pthread_t barberThread) {
 */
     // Decrease the count of active barbers
 
-    printf("Fired a barber. Total barbers: %d\n\n", CURR_BARB--);
+    printf("Fired a barber. Total barbers: %d\n\n", CURR_BARB);
     // Unlock the mutex before terminating the thread
 
     // Terminate the barber thread
@@ -297,7 +288,6 @@ void fireBarber(pthread_t barberThread) {
   }
 }
 
-// Task: Separate counter variable for barber indices that will not create overlaps when firing barbers
 void hireBarber() {
   // Hire a new barber
   printf("Hiring a new barber!\n\n");
@@ -306,15 +296,13 @@ void hireBarber() {
   pthread_t newBarber;
   int *serial_number = (int*)malloc(sizeof(int));
   *serial_number = CURR_BARB;
-  // CURR_BARB is incremented in the barber thread itself;
   int status = pthread_create(&newBarber, NULL, (void *)barberThread,
                               serial_number);
 
+  printf("Hired a new barber. Total barbers: %d\n\n", CURR_BARB);
+
   if (status != 0) {
       perror("Failed to hire a new barber!\n\n");
-  }else{
-    printf("Hired a new barber. Total barbers: %d\n\n", CURR_BARB+1);
   }
-
   pthread_mutex_unlock(&currbarbMutex);
 }
