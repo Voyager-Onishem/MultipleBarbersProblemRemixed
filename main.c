@@ -28,19 +28,20 @@ bool isHiring = false; // A flag to control hiring
 bool isFiring = false; // A flag to control firing
 bool insuff = false;
 bool isnew = true;
+bool cusisnew = true;
 bool logging = false;
 
 pthread_mutex_t currbarbMutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
   int customerID;
+  int type;
   int satisfactionLevel; // You can use a scale from 1 to 5, for example
   time_t entryTime;
   time_t serviceTime;
   time_t waitingTime;
 } CustomerFeedback;
 
-enum CustomerType { REGULAR, VIP, CHILD, SENIOR };
 enum BarberType { REGULARB, SPEEDY, CHATTY, EXPERIENCED };
 
 typedef struct {
@@ -55,7 +56,7 @@ CustomerFeedback customerFeedbackData[10000];
 
 const char *BarberTypeStrings[] = {"REGULAR", "SPEEDY", "CHATTY",
                                    "EXPERIENCED"};
-
+const char *CustomerType[] = {"REGULAR", "VIP", "CHILD", "SENIOR"};
 void barberThread(void *tmp);
 void customerThread(void *tmp);
 void wait();
@@ -70,15 +71,16 @@ void writelog() {
   FILE *fptr;
 
   // open the file in append mode
-  fptr = fopen("Logs.txt", "a");
 
   if (isnew) {
+    fptr = fopen("Logs.txt", "w");
     fprintf(fptr,
             "\t\t\t*****************QUEUE LOG***************\t\t\t\n\n\n");
     isnew = false;
-  }
+  } else
+    fptr = fopen("Logs.txt", "a");
   if (fptr != NULL) {
-    printf("[Logged]\n")
+    printf("[Logged]\n");
   } else if (fptr == NULL) {
     printf("Failed to create the file.\n");
     // exit status for OS that an error occurred
@@ -114,6 +116,53 @@ void writelog() {
   // close connection
   fclose(fptr);
 }
+void custlog(int i) {
+
+  // creating a FILE variable
+  FILE *fptr;
+
+  if (cusisnew) {
+    fptr = fopen("CustLogs.txt", "w");
+    fprintf(fptr,
+            "\t\t\t*****************CUSTOMER LOG***************\t\t\t\n\n\n");
+    cusisnew = false;
+  }
+  // open the file in append mode
+  else
+    fptr = fopen("CustLogs.txt", "a");
+  if (fptr != NULL) {
+    printf("[Customer data recorded]\n");
+  } else if (fptr == NULL) {
+    printf("Failed to create the file.\n");
+    // exit status for OS that an error occurred
+  }
+  int id = customerFeedbackData[i].customerID;
+  int type = customerFeedbackData[i].type;
+  int satisfactionLevel = customerFeedbackData[i].satisfactionLevel;
+
+  time_t t = customerFeedbackData[i].waitingTime;
+  struct tm *tmp = gmtime(&t);
+
+  // int m = (t / 60) % 60;
+  // int s = t % 60;
+  int m = tmp->tm_min;
+  int s = tmp->tm_sec;
+  // printf("waitingTime: %lld, m: %d, s: %d\n", (long
+  // long)customerFeedbackData[i].waitingTime, m, s);
+
+  fprintf(fptr, "---[Customer: %d]--------------------\n", id);
+
+  fprintf(fptr, "Customer ID:\t %d\n", id);
+  fprintf(fptr, "Customer type:\t %s\n", CustomerType[type]);
+  fprintf(fptr, "Satisfaction Level:\t %d\n",
+          customerFeedbackData[i].satisfactionLevel);
+  fprintf(fptr, "Time waited %d:%d", tmp->tm_min, tmp->tm_sec);
+
+  fprintf(fptr, "\n\n");
+
+  // close connection
+  fclose(fptr);
+}
 
 int main() {
   printf("Enter the number of chairs in waiting room: ");
@@ -131,14 +180,10 @@ int main() {
 
   int i, status = 0;
 
-  // sem_init(&customers, 0, 0);
   sem_init(&barbers, 0, 0);
   sem_init(&mutex, 0, 1);
 
   printf("\n\n");
-
-  printf("Print statement sequences might be changed. Should only be used to "
-         "know what the customer saw\n");
 
   printf("!!Barber Shop Opens!!\n\n");
 
@@ -169,13 +214,12 @@ int main() {
   if (status != 0) {
     perror("Error creating the management thread\n\n");
   }
-
+  pthread_join(logger, NULL);
   // Wait for the management thread to finish
   // pthread_join(managerThread, NULL);
   for (i = 0; i < MAX_CUST; i++) {
     pthread_join(customer[i], NULL);
   }
-  pthread_join(logger, NULL);
 
   printf("Pending hires and fires cancelled\n!!Barber Shop Closes!!\n\n");
   exit(EXIT_SUCCESS);
@@ -186,8 +230,7 @@ void customerThread(void *tmp) {
     ;
   int mySeat, B, id;
   int satisfaction;
-  enum CustomerType type =
-      (enum CustomerType)(rand() % 4); // Randomly assign customer types
+  int type = (rand() % 4); // Randomly assign customer types
   time_t entryTime;
   time_t serviceTime;
   time_t waitingTime;
@@ -201,17 +244,13 @@ void customerThread(void *tmp) {
   if (numberOfFreeSeats > 0) {
     sem_wait(&mutex);
     numberOfFreeSeats--;
-    // sitHereNext = (sitHereNext + 1) % MAX_CHAIRS;
     ++sitHereNext;
     mySeat = sitHereNext;
     seatPocket[mySeat][0] = id;
-    sem_post(&mutex);
-    // writelog();
     printf("Customer-%d Sits In Waiting Room.\n\n", id);
     sem_post(&barbers);
     // sem_wait(&customers);
-    while (seatPocket[mySeat][0] != -1)
-      ;
+    // while (seatPocket[mySeat][0] != -1);
     time(&serviceTime);
 
     // Record customer service time
@@ -228,27 +267,34 @@ void customerThread(void *tmp) {
     } else if (waitingTime > 0) {
       satisfaction = 4;
     }
-    sem_wait(&mutex);
-    // B = seatPocket[mySeat];
-    // numberOfFreeSeats++;
+
     seatPocket[mySeat][1] = waitingTime;
     seatPocket[mySeat][2] = satisfaction;
 
     printf("Customer-%d is satisfied with level %d. Waited for %d seconds.\n\n",
            id, seatPocket[mySeat][2], seatPocket[mySeat][1]);
+    customerFeedbackData[count].customerID = count;
+    customerFeedbackData[count].type = type;
+    customerFeedbackData[count].satisfactionLevel = satisfaction;
+    customerFeedbackData[count].entryTime = entryTime;
+    customerFeedbackData[count].serviceTime = serviceTime;
+    customerFeedbackData[count].waitingTime = waitingTime;
+    custlog(count);
     sem_post(&mutex);
   } else {
     printf("Customer-%d Finds No Seat & Leaves.\n\n", id);
     insuff = true;
     satisfaction = -1;
-    // sleep(2); // Sleep for 2 seconds as a placeholder
+    sem_wait(&mutex);
+    customerFeedbackData[count].customerID = count;
+    customerFeedbackData[count].type = type;
+    customerFeedbackData[count].satisfactionLevel = satisfaction;
+    customerFeedbackData[count].entryTime = entryTime;
+    customerFeedbackData[count].serviceTime = 0;
+    customerFeedbackData[count].waitingTime = 0;
+    custlog(count);
   }
 
-  customerFeedbackData[count].customerID = count;
-  customerFeedbackData[count].satisfactionLevel = satisfaction;
-  customerFeedbackData[count].entryTime = entryTime;
-  customerFeedbackData[count].serviceTime = serviceTime;
-  customerFeedbackData[count].waitingTime = waitingTime;
   pthread_exit(0);
 }
 
@@ -278,13 +324,12 @@ void barberThread(void *tmp) {
     printf("Barber-%d Gone To Sleep.\n\n", index);
     sem_wait(&barbers);
     sem_wait(&mutex);
-    // serveMeNext = (serveMeNext + 1) % MAX_CHAIRS;
+
     ++serveMeNext;
     myNext = serveMeNext;
     numberOfFreeSeats++;
     sem_post(&mutex);
     C = seatPocket[myNext][0];
-    // seatPocket[myNext] = pthread_self();
 
     printf("Customer-%d gets up from their seat\nThere are %d free seats\n\n",
            C, numberOfFreeSeats);
@@ -294,13 +339,13 @@ void barberThread(void *tmp) {
 
     sleep(30 / skill);
     printf("Barber-%d Finishes.\n", index);
-    // sem_post(&customers);
+
     sem_wait(&mutex);
     seatPocket[myNext][0] = -1;
-    // seatPocket[myNext][1] = -1;
-    // seatPocket[myNext][2] = -1;
+
     sem_post(&mutex);
   }
+  pthread_exit(0);
 }
 
 void managementThread(void *tmp) {
@@ -321,8 +366,7 @@ void managementThread(void *tmp) {
 
     } else if (numberOfFreeSeats > (0.5) * MAX_CHAIRS && CURR_BARB > 1) {
       // Fire a barber if there are fewer than 5 free seats and more than 1
-      // barber
-      // fireBarber();
+      // barber fireBarber();
     }
 
     // Sleep for a while before making the next evaluation
@@ -338,7 +382,7 @@ void wait() {
 }
 
 // Define a mutex for controlling access to the activeBarbers variable
-// Task : Update totals of barbers
+
 void fireBarber(pthread_t barberThread) {
   // Lock the mutex to ensure exclusive access to the activeBarbers variable
   pthread_mutex_lock(&currbarbMutex);
@@ -393,10 +437,18 @@ void hireBarber() {
 }
 
 void loggingthread() {
+  int okay = count;
   while (1) {
+    sem_wait(&mutex);
+    int okay = count;
+    sem_post(&mutex);
     logging = true;
     writelog();
     logging = false;
     sleep(2);
+    if (count == MAX_CUST) {
+      break;
+    }
   }
+  pthread_exit(0);
 }
