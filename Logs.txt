@@ -1,0 +1,38 @@
+			****************QUEUE LOG**************			
+
+
+--[Time: 10:51:39]-----[Log: 1]--------------------
+Number of chairs in waiting queue:	 5
+Number of free seats:	 5
+The waiting queue:
+Customer ID: 	| E | E | E | E | E | E |
+
+
+--[Time: 10:51:41]-----[Log: 2]--------------------
+Number of chairs in waiting queue:	 5
+Number of free seats:	 1
+The waiting queue:
+Customer ID: 	| 1 | 2 | 3 | 4 | E |
+
+
+--[Time: 10:51:43]-----[Log: 3]--------------------
+Number of chairs in waiting queue:	 5
+Number of free seats:	 1
+The waiting queue:
+Customer ID: 	| E | 2 | 3 | 4 | 5 |
+
+
+--[Time: 10:51:45]-----[Log: 4]--------------------
+Number of chairs in waiting queue:	 5
+Number of free seats:	 1
+The waiting queue:
+Customer ID: 	| E | E | 3 | 4 | 5 | 6 |
+
+
+--[Time: 10:51:47]-----[Log: 5]--------------------
+Number of chairs in waiting queue:	 5
+Number of free seats:	 1
+The waiting queue:
+Customer ID: 	| E | E | E | 4 | 5 | 6 | 7 |
+
+

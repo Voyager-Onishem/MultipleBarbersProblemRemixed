@@ -1,0 +1,57 @@
+			****************CUSTOMER LOG**************			
+
+
+---[Customer: 1]--------------------
+Customer ID:	 1
+Customer type:	 CHILD
+Satisfaction Level:	 3
+Time waited 0:2
+
+---[Customer: 2]--------------------
+Customer ID:	 2
+Customer type:	 CHILD
+Satisfaction Level:	 2
+Time waited 0:4
+
+---[Customer: 3]--------------------
+Customer ID:	 3
+Customer type:	 REGULAR
+Satisfaction Level:	 2
+Time waited 0:6
+
+---[Customer: 4]--------------------
+Customer ID:	 4
+Customer type:	 SENIOR
+Satisfaction Level:	 1
+Time waited 0:7
+
+---[Customer: 5]--------------------
+Customer ID:	 5
+Customer type:	 REGULAR
+Satisfaction Level:	 1
+Time waited 0:9
+
+---[Customer: 6]--------------------
+Customer ID:	 6
+Customer type:	 REGULAR
+Satisfaction Level:	 1
+Time waited 0:10
+
+---[Customer: 7]--------------------
+Customer ID:	 7
+Customer type:	 SENIOR
+Satisfaction Level:	 1
+Time waited 0:10
+
+---[Customer: 9]--------------------
+Customer ID:	 9
+Customer type:	 SENIOR
+Satisfaction Level:	 1
+Time waited 0:7
+
+---[Customer: 8]--------------------
+Customer ID:	 8
+Customer type:	 CHILD
+Satisfaction Level:	 1
+Time waited 0:9
+
