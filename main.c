@@ -75,7 +75,7 @@ void writelog() {
   if (isnew) {
     fptr = fopen("Logs.txt", "w");
     fprintf(fptr,
-            "\t\t\t*****************QUEUE LOG***************\t\t\t\n\n\n");
+            "\t\t\t****************QUEUE LOG**************\t\t\t\n\n\n");
     isnew = false;
   } else
     fptr = fopen("Logs.txt", "a");
@@ -124,7 +124,7 @@ void custlog(int i) {
   if (cusisnew) {
     fptr = fopen("CustLogs.txt", "w");
     fprintf(fptr,
-            "\t\t\t*****************CUSTOMER LOG***************\t\t\t\n\n\n");
+            "\t\t\t****************CUSTOMER LOG**************\t\t\t\n\n\n");
     cusisnew = false;
   }
   // open the file in append mode
@@ -250,7 +250,9 @@ void customerThread(void *tmp) {
     printf("Customer-%d Sits In Waiting Room.\n\n", id);
     sem_post(&barbers);
     // sem_wait(&customers);
-    // while (seatPocket[mySeat][0] != -1);
+    sem_post(&mutex);
+    while (seatPocket[mySeat][0] != -1);
+    
     time(&serviceTime);
 
     // Record customer service time
@@ -267,32 +269,33 @@ void customerThread(void *tmp) {
     } else if (waitingTime > 0) {
       satisfaction = 4;
     }
-
+	
+    sem_wait(&mutex);
     seatPocket[mySeat][1] = waitingTime;
     seatPocket[mySeat][2] = satisfaction;
 
     printf("Customer-%d is satisfied with level %d. Waited for %d seconds.\n\n",
            id, seatPocket[mySeat][2], seatPocket[mySeat][1]);
-    customerFeedbackData[count].customerID = count;
-    customerFeedbackData[count].type = type;
-    customerFeedbackData[count].satisfactionLevel = satisfaction;
-    customerFeedbackData[count].entryTime = entryTime;
-    customerFeedbackData[count].serviceTime = serviceTime;
-    customerFeedbackData[count].waitingTime = waitingTime;
-    custlog(count);
+    customerFeedbackData[id].customerID = id;
+    customerFeedbackData[id].type = type;
+    customerFeedbackData[id].satisfactionLevel = satisfaction;
+    customerFeedbackData[id].entryTime = entryTime;
+    customerFeedbackData[id].serviceTime = serviceTime;
+    customerFeedbackData[id].waitingTime = waitingTime;
+    custlog(id);
     sem_post(&mutex);
   } else {
     printf("Customer-%d Finds No Seat & Leaves.\n\n", id);
     insuff = true;
     satisfaction = -1;
     sem_wait(&mutex);
-    customerFeedbackData[count].customerID = count;
-    customerFeedbackData[count].type = type;
-    customerFeedbackData[count].satisfactionLevel = satisfaction;
-    customerFeedbackData[count].entryTime = entryTime;
-    customerFeedbackData[count].serviceTime = 0;
-    customerFeedbackData[count].waitingTime = 0;
-    custlog(count);
+    customerFeedbackData[id].customerID = id;
+    customerFeedbackData[id].type = type;
+    customerFeedbackData[id].satisfactionLevel = satisfaction;
+    customerFeedbackData[id].entryTime = entryTime;
+    customerFeedbackData[id].serviceTime = 0;
+    customerFeedbackData[id].waitingTime = 0;
+    custlog(id);
   }
 
   pthread_exit(0);
@@ -307,7 +310,7 @@ void barberThread(void *tmp) {
   free(tmp);
   int myNext, C;
   int typenum = (rand() % 4);
-  int skill = rand() % 10 + 1;
+  int skill = rand() % 4 + 1;
   int id = pthread_self();
   enum BarberType type = typenum;
 
@@ -337,7 +340,7 @@ void barberThread(void *tmp) {
     printf("Barber-%d Wakes Up & Is Cutting Hair Of Customer-%d.\n\n", index,
            C);
 
-    sleep(30 / skill);
+    sleep(8 / skill);
     printf("Barber-%d Finishes.\n", index);
 
     sem_wait(&mutex);
